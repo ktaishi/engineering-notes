@@ -42,6 +42,33 @@ Web サービス・API を開発・運用するときに確認するセキュリ
 - [ ] 管理者機能が、一般利用者から使えないか
 - [ ] 権限の確認を、画面側だけでなくサーバー側で行っているか
 
+**認証と認可の確認の流れ**
+
+```mermaid
+sequenceDiagram
+  actor U as 利用者
+  participant API as API サーバー
+  participant AUTH as 認証
+  participant DB as DB
+  U->>API: 注文 123 を取得（トークン付き）
+  API->>AUTH: トークンを検証
+  alt トークンが無効・期限切れ
+    AUTH-->>API: 無効
+    API-->>U: 401
+  else トークンが有効
+    AUTH-->>API: 利用者 ID
+    API->>DB: 注文 123 を取得
+    DB-->>API: 注文（持ち主の ID を含む）
+    alt 持ち主ではない・権限がない
+      API-->>U: 403 または 404
+    else 権限がある
+      API-->>U: 200 注文の内容
+    end
+  end
+```
+
+ログインしているか（認証）だけでなく、そのデータを操作してよい利用者か（認可）を、すべての API でサーバー側で確認します。
+
 ### 4. 入力と出力
 
 - [ ] SQL インジェクション対策として、プレースホルダや ORM を使っているか
@@ -74,6 +101,32 @@ Web サービス・API を開発・運用するときに確認するセキュリ
 - [ ] S3 などのストレージが、意図せず公開されていないか
 - [ ] 操作ログ（CloudTrail など）を記録し、保存しているか
 - [ ] 必要に応じて WAF を導入しているか
+
+**ネットワーク構成の例**
+
+```mermaid
+flowchart LR
+  I["インターネット"] --> WAF["WAF"]
+  WAF --> CDN["CDN"]
+  subgraph VPC["VPC"]
+    subgraph PUB["パブリックサブネット"]
+      ALB["ロードバランサー"]
+      NAT["NAT ゲートウェイ"]
+    end
+    subgraph PRI["プライベートサブネット"]
+      APP["アプリケーション"]
+      DB[("DB")]
+    end
+  end
+  CDN --> ALB
+  ALB --> APP
+  APP --> DB
+  APP --> NAT
+  NAT --> EXT["外部サービス"]
+  SM["秘密情報の管理<br/>Secrets Manager など"] -.-> APP
+```
+
+DB とアプリケーションはプライベートサブネットに置き、インターネットから直接アクセスできないようにします。
 
 ### 8. 依存パッケージ
 

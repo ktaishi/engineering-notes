@@ -32,6 +32,19 @@ AWS で Web サービス・API を構築するときに、どのサービスを�
 | EC2 | OS レベルの制御が必要な場合、特殊なソフトウェアを動かす場合 | OS の更新やセキュリティ対策を自分で行う必要がある |
 | EKS | 大規模で、Kubernetes の知見があるチーム | 学習と運用の負担が大きい。小規模なチームでは ECS で足りることが多い |
 
+**実行環境の選び方**
+
+```mermaid
+flowchart TD
+  A["処理"] --> B{"OS の制御や<br/>特殊なソフトウェアが必要か"}
+  B -- "必要" --> EC2["EC2"]
+  B -- "不要" --> C{"15分以内に終わるか"}
+  C -- "終わらない" --> ECST["ECS のタスク"]
+  C -- "終わる" --> D{"常にリクエストがあるか"}
+  D -- "ある" --> ECS["ECS（Fargate）"]
+  D -- "少ない・波がある・<br/>イベントで動く" --> L["Lambda"]
+```
+
 **選び方の目安**
 - まずは ECS（Fargate）か Lambda で検討する
 - 常にリクエストがある API は ECS、リクエストが少ない・イベントで動く処理は Lambda が向いている
@@ -141,12 +154,41 @@ AWS で Web サービス・API を構築するときに、どのサービスを�
 - 監視：CloudWatch
 - 秘密情報：Parameter Store または Secrets Manager
 
+```mermaid
+flowchart LR
+  U["利用者"] --> CF["CloudFront"]
+  CF --> S3[("S3<br/>静的ファイル")]
+  CF --> ALB["ALB"]
+  ALB --> ECS["ECS Fargate<br/>API"]
+  ECS --> RDS[("RDS<br/>PostgreSQL")]
+  ECS --> SQS["SQS"]
+  SQS --> L["Lambda<br/>非同期処理"]
+  L --> RDS
+  EB["EventBridge Scheduler"] --> BT["Lambda または ECS のタスク<br/>夜間バッチ"]
+  BT --> RDS
+  ECS -.-> CW["CloudWatch"]
+  ECS -.-> SM["Secrets Manager"]
+```
+
 ### 利用者が増えてきた段階
 
 - DB：Aurora への移行、リードレプリカの追加を検討
 - キャッシュ：ElastiCache の導入を、費用対効果を見て検討
 - 防御：WAF の導入
 - 監視：X-Ray や外部の監視サービスで、処理時間の内訳まで追えるようにする
+
+```mermaid
+flowchart LR
+  U["利用者"] --> WAF["WAF"]
+  WAF --> CF["CloudFront"]
+  CF --> ALB["ALB"]
+  ALB --> ECS["ECS Fargate<br/>オートスケーリング"]
+  ECS --> EC[("ElastiCache")]
+  ECS --> AW[("Aurora<br/>書き込み")]
+  ECS --> AR[("Aurora<br/>リードレプリカ")]
+  AW -. "レプリケーション" .-> AR
+  ECS -.-> MON["X-Ray・外部の監視サービス"]
+```
 
 ---
 

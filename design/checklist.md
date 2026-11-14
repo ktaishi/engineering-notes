@@ -28,6 +28,23 @@
 - [ ] 環境（開発、ステージング、本番）の分け方と、本番との差分を決めたか
 - [ ] インフラをコードで管理するか（Terraform、CDK など）を決めたか
 
+**構成図の例（一般的な Web サービス）**
+
+```mermaid
+flowchart LR
+  U["利用者<br/>ブラウザ・アプリ"] --> CDN["CDN"]
+  CDN --> LB["ロードバランサー"]
+  LB --> API["API サーバー"]
+  API --> DB[("DB")]
+  API --> CACHE[("キャッシュ")]
+  API --> Q["キュー"]
+  Q --> W["非同期ワーカー"]
+  W --> DB
+  W --> EXT["外部サービス<br/>メール・決済など"]
+  SCH["スケジューラー"] --> BATCH["夜間バッチ"]
+  BATCH --> DB
+```
+
 ### 2. データ設計
 
 - [ ] エンティティと関連（ER 図）を整理したか
@@ -38,6 +55,50 @@
 - [ ] 日時のタイムゾーン、金額・数値の精度、文字コードの扱いを統一したか
 - [ ] 個人情報・機密情報を持つ列を特定し、暗号化やマスキングの方針を決めたか
 - [ ] 既存データの移行方法（変換ルール、移行の手順、切り戻し）を設計したか
+
+**ER 図の例（店舗の予約サービス）**
+
+```mermaid
+erDiagram
+  ORGANIZATION ||--o{ STORE : "運営する"
+  STORE ||--o{ STAFF : "所属する"
+  STORE ||--o{ RESERVATION : "受け付ける"
+  CUSTOMER ||--o{ RESERVATION : "予約する"
+  STAFF |o--o{ RESERVATION : "担当する"
+  ORGANIZATION {
+    bigint id PK
+    string name
+    datetime created_at
+  }
+  STORE {
+    bigint id PK
+    bigint organization_id FK
+    string name
+    string timezone "日時の扱いを統一"
+  }
+  STAFF {
+    bigint id PK
+    bigint store_id FK
+    string name
+  }
+  CUSTOMER {
+    bigint id PK
+    string email UK "暗号化して保存"
+    string phone "暗号化して保存"
+    datetime deleted_at "論理削除"
+  }
+  RESERVATION {
+    bigint id PK
+    bigint store_id FK
+    bigint customer_id FK
+    bigint staff_id FK "未定の場合は空"
+    datetime starts_at "インデックス"
+    string status
+    int lock_version "楽観ロック"
+  }
+```
+
+検索に使う列のインデックス、個人情報の暗号化、論理削除、同時更新への対策（楽観ロック）など、チェックリストの観点を図にも書き込んでおくと、レビューで確認しやすくなります。
 
 ### 3. API 設計
 
@@ -56,6 +117,29 @@
 - [ ] 夜間バッチの処理時間を見積もり、データ量が増えても時間内に終わるか確認したか
 - [ ] 外部サービスが遅い・止まっている場合の動き（タイムアウト、リトライ、代替手段）を決めたか
 - [ ] キャッシュを使う箇所、置き場所（アプリ内、ElastiCache、CDN）、無効化の条件を決めたか
+
+**シーケンス図の例（大量データの CSV 出力を非同期にする）**
+
+```mermaid
+sequenceDiagram
+  actor U as 利用者
+  participant API as API サーバー
+  participant DB as DB
+  participant Q as キュー
+  participant W as ワーカー
+  participant S as ストレージ
+  U->>API: CSV 出力を依頼
+  API->>DB: ジョブを登録
+  API->>Q: ジョブを投入
+  API-->>U: 受付完了（すぐに返す）
+  Q->>W: ジョブを取り出す
+  W->>DB: データを分割して取得
+  W->>S: CSV を保存
+  W->>DB: ジョブを完了に更新
+  W-->>U: 完了を通知（ダウンロードリンク）
+```
+
+利用者を待たせる必要のない処理は、受付だけを API の応答内で行い、重い処理はワーカーに任せます。
 
 ### 5. 認証・権限
 
