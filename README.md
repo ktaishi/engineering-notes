@@ -49,6 +49,8 @@ flowchart TD
 
 ## はじめに
 
+- [PDF 版（AI 時代の開発ナレッジ集 2026年11月版）](pdf/engineering-notes-2026-11.pdf)
+  全ノートを1冊にまとめた PDF（A4・141ページ）。社内共有やプレゼンに。内容を更新したら `python3 scripts/pdf/build.py` で作り直せます
 - [規模別の使い方](guide/how-to-use.md)
   PoC・小規模な本番・成長期の本番で、どのチェックリストをどこまで使うかの目安
 - [テンプレート集](templates/README.md)
