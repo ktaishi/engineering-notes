@@ -28,7 +28,9 @@ AWS で Web サービス・API を構築するときに、どのサービスを�
 | サービス | 向いている用途 | 注意点 |
 |---|---|---|
 | ECS（Fargate） | 常時動く Web API、コンテナでの開発・運用、処理時間の長いジョブ | 常時稼働のため最低限の固定費がかかる。タスク数とオートスケーリングの設計が必要 |
+| ECS Express Mode | コンテナの Web アプリ・API を、最小限の設定で公開したい場合 | ロードバランサー、オートスケーリング、ネットワークなどを自動で作成する。細かな設定は、後から通常の ECS と同じように変更できる |
 | Lambda | リクエストが少ない・波がある API、イベントで動く処理、短時間のバッチ | 実行時間の上限（15分）、コールドスタート、同時実行数の上限、DB 接続数の急増に注意 |
+| Lambda Managed Instances | 一定の負荷が続く関数を、インスタンスの種類を選んで動かしたい場合 | インスタンスの管理は AWS が行う。料金の考え方が通常の Lambda と異なるため、費用を試算する |
 | EC2 | OS レベルの制御が必要な場合、特殊なソフトウェアを動かす場合 | OS の更新やセキュリティ対策を自分で行う必要がある |
 | EKS | 大規模で、Kubernetes の知見があるチーム | 学習と運用の負担が大きい。小規模なチームでは ECS で足りることが多い |
 
@@ -46,7 +48,8 @@ flowchart TD
 ```
 
 **選び方の目安**
-- まずは ECS（Fargate）か Lambda で検討する
+- まずは ECS（Fargate）か Lambda で検討する。コンテナを手早く公開したい場合は ECS Express Mode から始められる
+- App Runner は、2026年4月30日から新規の利用者を受け付けていない。AWS は移行先として ECS Express Mode を案内している
 - 常にリクエストがある API は ECS、リクエストが少ない・イベントで動く処理は Lambda が向いている
 - 同じサービスの中で、API は ECS、非同期の処理は Lambda のように組み合わせてもよい
 
@@ -89,11 +92,13 @@ flowchart TD
 | EventBridge | イベントで処理をつなぐ、外部サービスとの連携 | イベントの形式と流れを記録しておく |
 | EventBridge Scheduler | 定期実行（夜間バッチなど）の起動 | 実行の失敗を監視する |
 | Step Functions | 複数の手順からなる処理、待ちや分岐のある処理 | 状態遷移の回数による料金に注意する |
+| Lambda durable functions | 複数の手順や長い待ちを含む処理を、Lambda のコードとして書きたい場合 | 途中の状態を保存して再開できる。Step Functions との使い分け（図で管理するか、コードで管理するか）を決める |
 | ECS のタスク実行 | 時間のかかるバッチ処理 | 処理時間の計測と、失敗時の再実行の設計が必要 |
 | AWS Batch | 大量のデータを並列で処理する計算 | 一般的な Web サービスのバッチには過剰なことが多い |
 
 **選び方の目安**
 - 15分以内に終わる処理は Lambda、それより長い処理は ECS のタスクで実行する
+- 複数の手順や待ちを含む処理は、Step Functions か Lambda durable functions を検討する
 - 夜間バッチは、EventBridge Scheduler から Lambda または ECS のタスクを起動する構成が扱いやすい
 
 ### 6. 認証
@@ -245,3 +250,11 @@ flowchart LR
 - [ ] 費用と、運用の手間・可用性のどちらを優先するか
 - [ ] チームが運用できる構成か
 - [ ] 将来の拡張に備えて、今どこまで投資するか
+
+---
+
+## 参考情報（2026年11月時点）
+
+- [AWS App Runner availability change（AWS ドキュメント）](https://docs.aws.amazon.com/ja_jp/apprunner/latest/dg/apprunner-availability-change.html)
+- [Serverless ICYMI Q4 2025（AWS Compute Blog）](https://aws.amazon.com/blogs/compute/serverless-icymi-q4-2025)
+- [Durable Functions and Werner Vogels' Last Keynote: Highlights of AWS re:Invent 2025（InfoQ）](https://infoq.com/news/2025/12/highlights-reinvent-2025-werner)
